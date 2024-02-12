@@ -10,32 +10,49 @@ const UpdatePrompt = () => {
   const searchParams = useSearchParams();
   const promptId = searchParams.get("id");
 
-  const [post, setPost] = useState({ prompt: "", tag: "", });
+  const [post, setPost] = useState({ prompt: "", tag: "" });
   const [submitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // Added a loading state
 
   useEffect(() => {
     const getPromptDetails = async () => {
-      const response = await fetch(`/api/prompt/${promptId}`);
-      const data = await response.json();
+      if (!promptId) {
+        setIsLoading(false);
+        return;
+      }
 
-      setPost({
-        prompt: data.prompt,
-        tag: data.tag,
-      });
+      try {
+        const response = await fetch(`/api/prompt/${promptId}`);
+        const data = await response.json();
+
+        setPost({
+          prompt: data.prompt,
+          tag: data.tag,
+        });
+      } catch (error) {
+        console.error("Failed to fetch prompt details:", error);
+      } finally {
+        setIsLoading(false); // Ensure loading state is updated once the fetch is complete or fails
+      }
     };
 
-    if (promptId) getPromptDetails();
+    getPromptDetails();
   }, [promptId]);
 
   const updatePrompt = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    if (!promptId) return alert("Missing PromptId!");
+    if (!promptId) {
+      alert("Missing PromptId!");
+      setIsSubmitting(false);
+      return;
+    }
 
     try {
       const response = await fetch(`/api/prompt/${promptId}`, {
         method: "PATCH",
+        headers: { 'Content-Type': 'application/json' }, // Ensure correct headers for JSON payload
         body: JSON.stringify({
           prompt: post.prompt,
           tag: post.tag,
@@ -44,13 +61,24 @@ const UpdatePrompt = () => {
 
       if (response.ok) {
         router.push("/");
+      } else {
+        throw new Error('Failed to update the prompt');
       }
     } catch (error) {
-      console.log(error);
+      console.error("Error updating prompt:", error);
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  if (isLoading) {
+    return <div>Loading...</div>; // Display a loading message if the data is still being fetched
+  }
+
+  // Optionally, handle the case where promptId is missing or data fetch failed after loading
+  if (!isLoading && !post.prompt && !post.tag) {
+    return <div>No prompt found or promptId is missing.</div>;
+  }
 
   return (
     <Form
